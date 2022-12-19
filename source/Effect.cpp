@@ -4,12 +4,23 @@
 Effect::Effect(ID3D11Device* pDevice, const std::wstring& assetFile)
 	: m_pEffect{ LoadEffect(pDevice, assetFile) }
 {
-	//Set technique
+	//Get information from shader en check if valid
 	m_pTechnique = m_pEffect->GetTechniqueByName("DefaultTechnique");
-
 	if (!m_pTechnique->IsValid())
 	{
 		std::wcout << L"Technique not valid!\n";
+	}
+
+	m_pMatWorldViewProjVariable = m_pEffect->GetVariableByName("gWorldViewProj")->AsMatrix();
+	if (!m_pMatWorldViewProjVariable->IsValid())
+	{
+		std::wcout << L"m_pMatWorldViewProjVariable not valid!\n";
+	}
+
+	m_pDiffuseMapVariable = m_pEffect->GetVariableByName("gDiffuseMap")->AsShaderResource();
+	if (!m_pDiffuseMapVariable->IsValid())
+	{
+		std::wcout << L"m_pDiffuseMapVariable not valid!\n";
 	}
 }
 
@@ -76,4 +87,17 @@ ID3DX11Effect* Effect::LoadEffect(ID3D11Device* pDevice, const std::wstring& ass
 	}
 
 	return pEffect;
+}
+
+void Effect::SetDiffuseMap(Texture* pDiffuseTexture)
+{
+	if (m_pDiffuseMapVariable)
+	{
+		m_pDiffuseMapVariable->SetResource(pDiffuseTexture->GetSRV());
+	}
+}
+
+void Effect::SetMatrix(const dae::Matrix& matrix)
+{
+	m_pMatWorldViewProjVariable->SetMatrix(reinterpret_cast<const float*>(&matrix));
 }

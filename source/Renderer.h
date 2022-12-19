@@ -1,16 +1,26 @@
 #pragma once
-#include "Mesh.h"
+#include "Utils.h"
+#include "Camera.h"
 
 struct SDL_Window;
 struct SDL_Surface;
 
 namespace dae
 {
+	enum FilteringMethods
+	{
+		Point,
+		Linear,
+		Anisotropic
+	};
+
 	class Renderer final
 	{
 	public:
 		Renderer(SDL_Window* pWindow);
 		~Renderer();
+
+		void PressFilterMethod();
 
 		Renderer(const Renderer&) = delete;
 		Renderer(Renderer&&) noexcept = delete;
@@ -38,7 +48,14 @@ namespace dae
 		ID3D11Resource* m_pRenderTargetBuffer{ nullptr };
 		ID3D11RenderTargetView* m_pRenderTargetView{ nullptr };
 
+		ID3DX11EffectSamplerVariable* m_pEffectSamplerVariable{};
+		ID3D11SamplerState* m_pSamplerState{};
+		D3D11_SAMPLER_DESC m_SamplerDesc{};
+		
+		FilteringMethods m_FilteringMethod{ Anisotropic };
+
 		Mesh* m_pMesh{};
+		Camera* m_pCamera{};
 
 		void CreateMesh();
 	};

@@ -56,6 +56,10 @@ int main(int argc, char* args[])
 				isLooping = false;
 				break;
 			case SDL_KEYUP:
+				if (e.key.keysym.scancode == SDL_SCANCODE_F2)
+				{
+					pRenderer->PressFilterMethod();
+				}
 				//Test for a key
 				//if (e.key.keysym.scancode == SDL_SCANCODE_X)
 				break;

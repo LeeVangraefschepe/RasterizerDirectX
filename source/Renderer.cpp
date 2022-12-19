@@ -10,6 +10,8 @@ namespace dae {
 	{
 		//Initialize
 		SDL_GetWindowSize(pWindow, &m_Width, &m_Height);
+		m_pCamera = new Camera{};
+		m_pCamera->Initialize(((float)m_Width) / ((float)m_Height), 45.f, { 0,0,-50 });
 
 		//Initialize DirectX pipeline
 		const HRESULT result = InitializeDirectX();
@@ -24,6 +26,26 @@ namespace dae {
 		}
 
 		CreateMesh();
+
+		//Initialize sampler
+		m_pEffectSamplerVariable = m_pMesh->GetSampleVar();
+		if (!m_pEffectSamplerVariable->IsValid())
+		{
+			std::wcout << L"m_pEffectSamplerVariable not valid!\n";
+		}
+
+		//Create sampler
+		m_SamplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+		m_SamplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+		m_SamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+
+		m_SamplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+		m_SamplerDesc.MipLODBias = 0;
+		m_SamplerDesc.MinLOD = 0;
+
+		m_SamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+		m_SamplerDesc.MaxAnisotropy = 16;
+		PressFilterMethod();
 	}
 
 	Renderer::~Renderer()
@@ -58,13 +80,27 @@ namespace dae {
 		{
 			m_pDevice->Release();
 		}
+		if (m_pEffectSamplerVariable)
+		{
+			m_pEffectSamplerVariable->Release();
+		}
+		if (m_pSamplerState)
+		{
+			m_pSamplerState->Release();
+		}
 
 		delete m_pMesh;
+		delete m_pCamera;
 	}
 
 	void Renderer::Update(const Timer* pTimer)
 	{
+		m_pCamera->Update(pTimer);
 
+		const float rotateSpeed{ 45.0f };
+		m_pMesh->RotateY(rotateSpeed * TO_RADIANS * pTimer->GetElapsed());
+
+		m_pMesh->SetMatrix(m_pCamera->viewMatrix * m_pCamera->projectionMatrix);
 	}
 
 
@@ -196,20 +232,47 @@ namespace dae {
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
 		viewport.MinDepth = 0;
-		viewport.MaxDepth = 0;
+		viewport.MaxDepth = 1;
 		m_pDeviceContext->RSSetViewports(1, &viewport);
 
 		return S_OK;
 	}
 
+	void Renderer::PressFilterMethod()
+	{
+		m_FilteringMethod = static_cast<FilteringMethods>((static_cast<int>(m_FilteringMethod) + 1) % 3);
+
+		switch (m_FilteringMethod)
+		{
+		case dae::Point:
+			std::cout << "POINT\n";
+			m_SamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+			break;
+		case dae::Linear:
+			std::cout << "LINEAR\n";
+			m_SamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+			break;
+		case dae::Anisotropic:
+			std::cout << "ANISOTROPIC\n";
+			m_SamplerDesc.Filter = D3D11_FILTER_ANISOTROPIC;
+			break;
+		}
+
+		if (m_pSamplerState) m_pSamplerState->Release();
+
+		HRESULT result{ m_pDevice->CreateSamplerState(&m_SamplerDesc, &m_pSamplerState) };
+
+		if (FAILED(result)) return;
+
+		m_pEffectSamplerVariable->SetSampler(0, m_pSamplerState);
+	}
+
 	void Renderer::CreateMesh()
 	{
-		const std::vector<Vertex> vertices{
-		   {{ 0.f, .5f, .5f }, { 1.f, 0.f, 0.f }},
-		   {{ .5f, -.5f, .5f }, { 0.f, 0.f, 1.f }},
-		   {{ -.5f, -.5f, .5f }, { 0.f, 1.f, 0.f }},
-		};
-		const std::vector<uint32_t> indices{ 0, 1, 2 };
+		std::vector<Vertex> vertices{};
+		std::vector<uint32_t> indices{};
+
+		Utils::ParseOBJ("Resources/vehicle.obj", vertices, indices);
 
 		m_pMesh = new Mesh{ m_pDevice, vertices, indices };
 	}

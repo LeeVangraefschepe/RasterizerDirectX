@@ -48,6 +48,24 @@ namespace dae {
 		static Matrix Transpose(const Matrix& m);
 		static Matrix Inverse(const Matrix& m);
 
+		float* ConvertToPointer()
+		{
+			float* pointerData = new float[16];
+			int fillId{};
+			for (int i = 0; i < 4; i++)
+			{
+				pointerData[fillId] = data[i].x;
+				++fillId;
+				pointerData[fillId] = data[i].y;
+				++fillId;
+				pointerData[fillId] = data[i].z;
+				++fillId;
+				pointerData[fillId] = data[i].w;
+				++fillId;
+			}
+			return pointerData;
+		}
+
 		static Matrix CreateLookAtLH(const Vector3& origin, const Vector3& forward, const Vector3& up);
 		static Matrix CreatePerspectiveFovLH(float fovy, float aspect, float zn, float zf);
 

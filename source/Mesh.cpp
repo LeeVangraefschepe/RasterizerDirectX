@@ -1,12 +1,17 @@
 #include "pch.h"
 #include "Mesh.h"
 #include "Effect.h"
+#include "Texture.h"
 
 namespace dae
 {
 	Mesh::Mesh(ID3D11Device* pDevice, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 		: m_pEffect{ new Effect{ pDevice, L"Resources/PosCol3D.fx" } }
 	{
+		//Create texture
+		m_pTexture = new Texture{ pDevice, "Resources/vehicle_diffuse.png" };
+		m_pEffect->SetDiffuseMap(m_pTexture);
+
 		//Get Technique from Effect
 		m_pTechnique = m_pEffect->GetTechnique();
 
@@ -19,8 +24,8 @@ namespace dae
 		vertexDesc[0].AlignedByteOffset = 0;
 		vertexDesc[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 
-		vertexDesc[1].SemanticName = "COLOR";
-		vertexDesc[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+		vertexDesc[1].SemanticName = "TEXCOORD";
+		vertexDesc[1].Format = DXGI_FORMAT_R32G32_FLOAT;
 		vertexDesc[1].AlignedByteOffset = 12;
 		vertexDesc[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 
@@ -96,6 +101,7 @@ namespace dae
 		}
 
 		delete m_pEffect;
+		delete m_pTexture;
 	}
 	void Mesh::Render(ID3D11DeviceContext* pDeviceContext) const
 	{
@@ -121,5 +127,13 @@ namespace dae
 			m_pTechnique->GetPassByIndex(p)->Apply(0, pDeviceContext);
 			pDeviceContext->DrawIndexed(m_NumIndices, 0, 0);
 		}
+	}
+	void Mesh::SetMatrix(const dae::Matrix& matrix)
+	{
+		m_pEffect->SetMatrix(m_RotationMatrix * matrix);
+	}
+	ID3DX11EffectSamplerVariable* Mesh::GetSampleVar()
+	{
+		return m_pEffect->GetEffect()->GetVariableByName("gSampler")->AsSampler();
 	}
 }

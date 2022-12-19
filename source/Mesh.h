@@ -1,13 +1,14 @@
 #include "pch.h"
 
 class Effect;
+class Texture;
 
 namespace dae
 {
 	struct Vertex
 	{
 		Vector3 Position;
-		ColorRGB Color;
+		Vector2 UV;
 	};
 
 	class Mesh final
@@ -23,10 +24,18 @@ namespace dae
 		Mesh& operator=(Mesh&&) noexcept = delete;
 
 		void Render(ID3D11DeviceContext* pDeviceContext) const;
+		void SetMatrix(const dae::Matrix& matrix);
 
+		void RotateY(float rotation)
+		{
+			m_RotationMatrix = Matrix::CreateRotationY(rotation) * m_RotationMatrix;
+		}
+
+		ID3DX11EffectSamplerVariable* GetSampleVar();
 	private:
 
 		Effect* m_pEffect{};
+		Texture* m_pTexture{};
 		ID3DX11EffectTechnique* m_pTechnique{};
 
 		ID3D11Buffer* m_pVertexBuffer{};
@@ -35,5 +44,6 @@ namespace dae
 
 		uint32_t m_NumIndices{};
 
+		Matrix m_RotationMatrix{ Vector3::UnitX, Vector3::UnitY, Vector3::UnitZ, Vector3::Zero };
 	};
 }
