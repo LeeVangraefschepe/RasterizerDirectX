@@ -54,7 +54,7 @@ namespace dae
 		
 		FilteringMethods m_FilteringMethod{ Anisotropic };
 
-		Mesh* m_pMesh{};
+		std::vector<Mesh*> m_pMeshes{};
 		Camera* m_pCamera{};
 
 		void CreateMesh();

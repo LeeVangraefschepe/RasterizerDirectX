@@ -1,3 +1,4 @@
+#pragma once
 #include "pch.h"
 
 class Effect;
@@ -8,14 +9,33 @@ namespace dae
 	struct Vertex
 	{
 		Vector3 Position;
+		Vector3 Normal;
+		Vector3 Tangent;
 		Vector2 UV;
+	};
+
+	struct MeshDataPaths
+	{
+		std::wstring effect;
+		std::string diffuse;
+		std::string normal;
+		std::string specular;
+		std::string gloss;
+		void Clear()
+		{
+			effect.clear();
+			diffuse.clear();
+			normal.clear();
+			specular.clear();
+			gloss.clear();
+		}
 	};
 
 	class Mesh final
 	{
 	public:
 
-		explicit Mesh(ID3D11Device* pDevice, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+		explicit Mesh(ID3D11Device* pDevice, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, const MeshDataPaths& paths);
 		~Mesh();
 
 		Mesh(const Mesh&) = delete;
@@ -24,18 +44,22 @@ namespace dae
 		Mesh& operator=(Mesh&&) noexcept = delete;
 
 		void Render(ID3D11DeviceContext* pDeviceContext) const;
-		void SetMatrix(const dae::Matrix& matrix);
+
+		void SetMatrices(const Matrix& viewProj, const Matrix& invView) const;
 
 		void RotateY(float rotation)
 		{
 			m_RotationMatrix = Matrix::CreateRotationY(rotation) * m_RotationMatrix;
 		}
 
-		ID3DX11EffectSamplerVariable* GetSampleVar();
+		ID3DX11EffectSamplerVariable* GetSampleVar() const;
 	private:
 
 		Effect* m_pEffect{};
-		Texture* m_pTexture{};
+		Texture* m_pDiffuseTexture{};
+		Texture* m_pNormalTexture{};
+		Texture* m_pSpecularTexture{};
+		Texture* m_pGlossinessTexture{};
 		ID3DX11EffectTechnique* m_pTechnique{};
 
 		ID3D11Buffer* m_pVertexBuffer{};

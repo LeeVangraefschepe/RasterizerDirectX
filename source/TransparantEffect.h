@@ -1,17 +1,14 @@
 #pragma once
 #include "Texture.h"
-
-class Effect final
+class TransparantEffect
 {
-public:
+	TransparantEffect(ID3D11Device* pDevice, const std::wstring& assetFile);
+	~TransparantEffect();
 
-	Effect(ID3D11Device* pDevice, const std::wstring& assetFile);
-	~Effect();
-
-	Effect(const Effect&) = delete;
-	Effect(Effect&&) noexcept = delete;
-	Effect& operator=(const Effect&) = delete;
-	Effect& operator=(Effect&&) noexcept = delete;
+	TransparantEffect(const TransparantEffect&) = delete;
+	TransparantEffect(TransparantEffect&&) noexcept = delete;
+	TransparantEffect& operator=(const TransparantEffect&) = delete;
+	TransparantEffect& operator=(TransparantEffect&&) noexcept = delete;
 
 	static ID3DX11Effect* LoadEffect(ID3D11Device* pDevice, const std::wstring& assetFile);
 	void SetDiffuseMap(const Texture* pDiffuseTexture) const;

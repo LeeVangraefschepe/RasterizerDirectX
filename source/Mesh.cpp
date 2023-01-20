@@ -5,18 +5,35 @@
 
 namespace dae
 {
-	Mesh::Mesh(ID3D11Device* pDevice, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
-		: m_pEffect{ new Effect{ pDevice, L"Resources/PosCol3D.fx" } }
+	Mesh::Mesh(ID3D11Device* pDevice, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, const MeshDataPaths& paths)
+		: m_pEffect{ new Effect{ pDevice, paths.effect } }
 	{
-		//Create texture
-		m_pTexture = new Texture{ pDevice, "Resources/vehicle_diffuse.png" };
-		m_pEffect->SetDiffuseMap(m_pTexture);
+		///Create textures
+		
+		m_pDiffuseTexture = new Texture{ pDevice, paths.diffuse };
+		m_pEffect->SetDiffuseMap(m_pDiffuseTexture);
+
+		if (!paths.normal.empty())
+		{
+			m_pNormalTexture = new Texture{ pDevice, paths.normal };
+			m_pEffect->SetNormalMap(m_pNormalTexture);
+		}
+		if (!paths.specular.empty())
+		{
+			m_pSpecularTexture = new Texture{ pDevice, paths.specular };
+			m_pEffect->SetSpecularMap(m_pSpecularTexture);
+		}
+		if (!paths.gloss.empty())
+		{
+			m_pGlossinessTexture = new Texture{ pDevice, paths.gloss };
+			m_pEffect->SetGlossinessMap(m_pGlossinessTexture);
+		}
 
 		//Get Technique from Effect
 		m_pTechnique = m_pEffect->GetTechnique();
 
 		//Create Vertex Layout
-		static constexpr uint32_t numElements{ 2 };
+		static constexpr uint32_t numElements{ 4 };
 		D3D11_INPUT_ELEMENT_DESC vertexDesc[numElements]{};
 
 		vertexDesc[0].SemanticName = "POSITION";
@@ -24,10 +41,20 @@ namespace dae
 		vertexDesc[0].AlignedByteOffset = 0;
 		vertexDesc[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 
-		vertexDesc[1].SemanticName = "TEXCOORD";
-		vertexDesc[1].Format = DXGI_FORMAT_R32G32_FLOAT;
+		vertexDesc[1].SemanticName = "NORMAL";
+		vertexDesc[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;
 		vertexDesc[1].AlignedByteOffset = 12;
 		vertexDesc[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+
+		vertexDesc[2].SemanticName = "TANGENT";
+		vertexDesc[2].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+		vertexDesc[2].AlignedByteOffset = 24;
+		vertexDesc[2].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+
+		vertexDesc[3].SemanticName = "TEXCOORD";
+		vertexDesc[3].Format = DXGI_FORMAT_R32G32_FLOAT;
+		vertexDesc[3].AlignedByteOffset = 36;
+		vertexDesc[3].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 
 		//Create Input Layout and quit if failed
 		D3DX11_PASS_DESC passDesc{};
@@ -101,7 +128,10 @@ namespace dae
 		}
 
 		delete m_pEffect;
-		delete m_pTexture;
+		delete m_pDiffuseTexture;
+		delete m_pNormalTexture;
+		delete m_pSpecularTexture;
+		delete m_pGlossinessTexture;
 	}
 	void Mesh::Render(ID3D11DeviceContext* pDeviceContext) const
 	{
@@ -128,11 +158,15 @@ namespace dae
 			pDeviceContext->DrawIndexed(m_NumIndices, 0, 0);
 		}
 	}
-	void Mesh::SetMatrix(const dae::Matrix& matrix)
+
+	void Mesh::SetMatrices(const Matrix& viewProj, const Matrix& invView) const
 	{
-		m_pEffect->SetMatrix(m_RotationMatrix * matrix);
+		m_pEffect->SetMatrixWorld(m_RotationMatrix);
+		m_pEffect->SetMatrixViewProj(m_RotationMatrix * viewProj);
+		m_pEffect->SetMatrixViewInv(invView);
 	}
-	ID3DX11EffectSamplerVariable* Mesh::GetSampleVar()
+
+	ID3DX11EffectSamplerVariable* Mesh::GetSampleVar() const
 	{
 		return m_pEffect->GetEffect()->GetVariableByName("gSampler")->AsSampler();
 	}

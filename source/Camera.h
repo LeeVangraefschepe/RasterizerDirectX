@@ -1,5 +1,4 @@
 #pragma once
-#include <cassert>
 #include <SDL_keyboard.h>
 #include <SDL_mouse.h>
 
@@ -14,12 +13,12 @@ namespace dae
 
 		Camera(const Vector3& _origin, float _fovAngle):
 			origin{_origin},
-			fovAngle{_fovAngle}
+			fovAngle{_fovAngle},
+			aspectRatio{}
 		{
 		}
 
 		Vector3 origin{};
-		float fov{ tanf((fovAngle * TO_RADIANS) / 2.f) };
 
 		Vector3 forward{Vector3::UnitZ};
 		Vector3 up{Vector3::UnitY};
@@ -80,7 +79,7 @@ namespace dae
 		{
 			const float deltaTime = pTimer->GetElapsed();
 
-			const float cameraSpeed{ 100.f };
+			constexpr float cameraSpeed{ 100.f };
 
 			//Keyboard Input
 			const uint8_t* pKeyboardState = SDL_GetKeyboardState(nullptr);
@@ -140,5 +139,7 @@ namespace dae
 		private:
 		float fovAngle{90.f};
 		float aspectRatio;
+		public:
+		float fov{ tanf((fovAngle * TO_RADIANS) / 2.f) };
 	};
 }

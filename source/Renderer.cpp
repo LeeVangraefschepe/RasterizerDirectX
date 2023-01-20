@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "Renderer.h"
 
+#include <future>
+
 #define DEBUG
 
 namespace dae {
@@ -11,7 +13,7 @@ namespace dae {
 		//Initialize
 		SDL_GetWindowSize(pWindow, &m_Width, &m_Height);
 		m_pCamera = new Camera{};
-		m_pCamera->Initialize(((float)m_Width) / ((float)m_Height), 45.f, { 0,0,-50 });
+		m_pCamera->Initialize(static_cast<float>(m_Width) / static_cast<float>(m_Height), 45.f, { 0,0,-50 });
 
 		//Initialize DirectX pipeline
 		const HRESULT result = InitializeDirectX();
@@ -28,7 +30,7 @@ namespace dae {
 		CreateMesh();
 
 		//Initialize sampler
-		m_pEffectSamplerVariable = m_pMesh->GetSampleVar();
+		m_pEffectSamplerVariable = m_pMeshes[0]->GetSampleVar();
 		if (!m_pEffectSamplerVariable->IsValid())
 		{
 			std::wcout << L"m_pEffectSamplerVariable not valid!\n";
@@ -89,7 +91,10 @@ namespace dae {
 			m_pSamplerState->Release();
 		}
 
-		delete m_pMesh;
+		for (const auto pMesh : m_pMeshes)
+		{
+			delete pMesh;
+		}
 		delete m_pCamera;
 	}
 
@@ -97,10 +102,13 @@ namespace dae {
 	{
 		m_pCamera->Update(pTimer);
 
-		const float rotateSpeed{ 45.0f };
-		m_pMesh->RotateY(rotateSpeed * TO_RADIANS * pTimer->GetElapsed());
+		constexpr float rotateSpeed{ 45.0f };
 
-		m_pMesh->SetMatrix(m_pCamera->viewMatrix * m_pCamera->projectionMatrix);
+		for (const auto pMesh : m_pMeshes)
+		{
+			pMesh->RotateY(rotateSpeed * TO_RADIANS * pTimer->GetElapsed());
+			pMesh->SetMatrices(m_pCamera->viewMatrix * m_pCamera->projectionMatrix, m_pCamera->invViewMatrix);
+		}
 	}
 
 
@@ -110,12 +118,15 @@ namespace dae {
 			return;
 
 		//Clear window for next frame
-		ColorRGB clearColor{ 0.0f, 0.0f, 0.3f };
+		constexpr ColorRGB clearColor{ 0.0f, 0.0f, 0.3f };
 		m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, &clearColor.r);
 		m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		//Set pipeline + invoke drawcalls (= render)
-		m_pMesh->Render(m_pDeviceContext);
+		for (const auto pMesh : m_pMeshes)
+		{
+			pMesh->Render(m_pDeviceContext);
+		}
 
 		//Present to screen
 		m_pSwapChain->Present(0, 0);
@@ -129,7 +140,7 @@ namespace dae {
 #if defined(DEBUG) || defined(_DEBUG)
 		createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
-		HRESULT result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, 0, createDeviceFlags, &featureLevel, 1, D3D11_SDK_VERSION, &m_pDevice, nullptr, &m_pDeviceContext);
+		HRESULT result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, &featureLevel, 1, D3D11_SDK_VERSION, &m_pDevice, nullptr, &m_pDeviceContext);
 		if (FAILED(result))
 		{
 			return result;
@@ -260,7 +271,7 @@ namespace dae {
 
 		if (m_pSamplerState) m_pSamplerState->Release();
 
-		HRESULT result{ m_pDevice->CreateSamplerState(&m_SamplerDesc, &m_pSamplerState) };
+		const HRESULT result{ m_pDevice->CreateSamplerState(&m_SamplerDesc, &m_pSamplerState) };
 
 		if (FAILED(result)) return;
 
@@ -272,8 +283,25 @@ namespace dae {
 		std::vector<Vertex> vertices{};
 		std::vector<uint32_t> indices{};
 
+		//Load main mesh
 		Utils::ParseOBJ("Resources/vehicle.obj", vertices, indices);
 
-		m_pMesh = new Mesh{ m_pDevice, vertices, indices };
+		MeshDataPaths paths;
+		paths.effect = L"Resources/PosCol3D.fx";
+		paths.diffuse = "Resources/vehicle_diffuse.png";
+		paths.normal = "Resources/vehicle_normal.png";
+		paths.specular = "Resources/vehicle_specular.png";
+		paths.gloss = "Resources/vehicle_gloss.png";
+
+		m_pMeshes.push_back(new Mesh{ m_pDevice, vertices, indices, paths});
+		vertices.clear();
+		indices.clear();
+		paths.Clear();
+
+		//Load fire mesh
+		paths.effect = L"Resources/PosTrans3D.fx";
+		paths.diffuse = "Resources/fireFX_diffuse.png";
+		Utils::ParseOBJ("Resources/fireFX.obj", vertices, indices);
+		m_pMeshes.push_back(new Mesh{ m_pDevice, vertices, indices, paths });
 	}
 }

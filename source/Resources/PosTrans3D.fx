@@ -17,7 +17,7 @@ static const float gShininess = 25.f;
 static const float gKD = 1.f;
 static const float3 gAmbientColor = float3(0.025f, 0.025f, 0.025f);
 
-//SamplerState
+
 SamplerState gSampler : Sampler
 {
 	Filter = MIN_MAG_MIP_POINT;
@@ -27,16 +27,46 @@ SamplerState gSampler : Sampler
 
 BlendState gBlendState
 {
-	BlendEnable[0] = false;
+	BlendEnable[0] = true;
+	SrcBlend = src_alpha;
+	DestBlend = inv_src_alpha;
+	BlendOp = add;
+	SrcBlendAlpha = zero;
+	DestBlendAlpha = zero;
+	BlendOpAlpha = add;
 	RenderTargetWriteMask[0] = 0x0F;
+};
+
+RasterizerState gRasterizerState
+{
+	CullMode = none;
+	FrontCounterClockwise = false; //default
 };
 
 DepthStencilState gDepthStencilState
 {
 	DepthEnable = true;
-	DepthWriteMask = 1;
+	DepthWriteMask = zero;
 	DepthFunc = less;
 	StencilEnable = false;
+
+	//others are redundant because
+	//StencilEnable is false
+	//(for demo purposes only)
+	StencilReadMask = 0x0F;
+	StencilWriteMask = 0x0F;
+
+	FrontFaceStencilFunc = always;
+	BackFaceStencilFunc = always;
+
+	FrontFaceStencilDepthFail = keep;
+	BackFaceStencilDepthFail = keep;
+
+	FrontFaceStencilPass = keep;
+	BackFaceStencilPass = keep;
+
+	FrontFaceStencilFail = keep;
+	BackFaceStencilFail = keep;
 };
 
 //-------------------------
@@ -116,6 +146,7 @@ technique11 DefaultTechnique
 {
 	pass P0
 	{
+		SetRasterizerState(gRasterizerState);
 		SetDepthStencilState(gDepthStencilState, 0);
 		SetBlendState(gBlendState, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
 		SetVertexShader(CompileShader(vs_5_0, VS()));
