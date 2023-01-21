@@ -1,19 +1,17 @@
 #include "pch.h"
 #include "Renderer.h"
-
 #include <future>
 
 #define DEBUG
 
 namespace dae {
 
-	Renderer::Renderer(SDL_Window* pWindow) :
-		m_pWindow(pWindow)
+	Renderer::Renderer(SDL_Window* pWindow, Camera* pCamera) :
+		m_pWindow(pWindow),
+		m_pCamera(pCamera)
 	{
 		//Initialize
 		SDL_GetWindowSize(pWindow, &m_Width, &m_Height);
-		m_pCamera = new Camera{};
-		m_pCamera->Initialize(static_cast<float>(m_Width) / static_cast<float>(m_Height), 45.f, { 0,0,-50 });
 
 		//Initialize DirectX pipeline
 		const HRESULT result = InitializeDirectX();
@@ -47,7 +45,6 @@ namespace dae {
 
 		m_SamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 		m_SamplerDesc.MaxAnisotropy = 16;
-		PressFilterMethod();
 	}
 
 	Renderer::~Renderer()
@@ -90,23 +87,28 @@ namespace dae {
 		{
 			m_pSamplerState->Release();
 		}
+		if (m_pRasterizerState)
+		{
+			m_pRasterizerState->Release();
+		}
 
 		for (const auto pMesh : m_pMeshes)
 		{
 			delete pMesh;
 		}
-		delete m_pCamera;
 	}
 
 	void Renderer::Update(const Timer* pTimer)
 	{
-		m_pCamera->Update(pTimer);
-
 		constexpr float rotateSpeed{ 45.0f };
 
 		for (const auto pMesh : m_pMeshes)
 		{
-			pMesh->RotateY(rotateSpeed * TO_RADIANS * pTimer->GetElapsed());
+			if (m_Rotate)
+			{
+				pMesh->RotateY(rotateSpeed * TO_RADIANS * pTimer->GetElapsed());
+			}
+
 			pMesh->SetMatrices(m_pCamera->viewMatrix * m_pCamera->projectionMatrix, m_pCamera->invViewMatrix);
 		}
 	}
@@ -118,15 +120,25 @@ namespace dae {
 			return;
 
 		//Clear window for next frame
-		constexpr ColorRGB clearColor{ 0.0f, 0.0f, 0.3f };
+		ColorRGB clearColor{ 0.39f, 0.59f, 0.93f };
+		if (m_ClearColor)
+		{
+			clearColor = {0.1f,0.1f,0.1f};
+		}
 		m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, &clearColor.r);
 		m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		//Set pipeline + invoke drawcalls (= render)
-		for (const auto pMesh : m_pMeshes)
+		const int size = static_cast<int>(m_pMeshes.size());
+		for (int i{}; i < size; ++i)
 		{
-			pMesh->Render(m_pDeviceContext);
+			if (m_ShowFireMesh == false && i > 0)
+			{
+				break;
+			}
+			m_pMeshes[i]->Render(m_pDeviceContext);
 		}
+		
 
 		//Present to screen
 		m_pSwapChain->Present(0, 0);
@@ -140,11 +152,34 @@ namespace dae {
 #if defined(DEBUG) || defined(_DEBUG)
 		createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
-		HRESULT result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, &featureLevel, 1, D3D11_SDK_VERSION, &m_pDevice, nullptr, &m_pDeviceContext);
-		if (FAILED(result))
+
+		IDXGIFactory1* pFactory = nullptr;
+		HRESULT hr = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)&pFactory);
+
+		HRESULT result{};
+
+		if (SUCCEEDED(hr))
 		{
-			return result;
+			IDXGIAdapter1* pAdapter = nullptr;
+
+			hr = pFactory->EnumAdapters1(m_GpuIndex, &pAdapter);
+			if (SUCCEEDED(hr))
+			{
+				// Create device and context on the second GPU
+				result = D3D11CreateDevice(pAdapter, D3D_DRIVER_TYPE_UNKNOWN, nullptr, createDeviceFlags, &featureLevel, 1, D3D11_SDK_VERSION, &m_pDevice, nullptr, &m_pDeviceContext);
+
+				if (FAILED(result))
+				{
+					return result;
+				}
+
+				pAdapter->Release();
+			}
+
+			pFactory->Release();
 		}
+
+		
 
 		IDXGIFactory1* pDxgiFactory{ nullptr };
 		result = CreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&pDxgiFactory));
@@ -249,11 +284,11 @@ namespace dae {
 		return S_OK;
 	}
 
-	void Renderer::PressFilterMethod()
+	void Renderer::CycleSampleStates()
 	{
-		m_FilteringMethod = static_cast<FilteringMethods>((static_cast<int>(m_FilteringMethod) + 1) % 3);
+		m_SampleState = static_cast<SampleState>((static_cast<int>(m_SampleState) + 1) % 3);
 
-		switch (m_FilteringMethod)
+		switch (m_SampleState)
 		{
 		case dae::Point:
 			std::cout << "POINT\n";
@@ -276,6 +311,51 @@ namespace dae {
 		if (FAILED(result)) return;
 
 		m_pEffectSamplerVariable->SetSampler(0, m_pSamplerState);
+	}
+	void Renderer::CycleCullModes()
+	{
+		m_CullMode = static_cast<CullMode>((static_cast<int>(m_CullMode) + 1) % 3);
+
+		D3D11_RASTERIZER_DESC rasterizerDesc{};
+		rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+		rasterizerDesc.FrontCounterClockwise = false;
+		rasterizerDesc.DepthBias = 0;
+		rasterizerDesc.SlopeScaledDepthBias = 0.0f;
+		rasterizerDesc.DepthBiasClamp = 0.0f;
+		rasterizerDesc.DepthClipEnable = true;
+		rasterizerDesc.ScissorEnable = false;
+		rasterizerDesc.MultisampleEnable = false;
+		rasterizerDesc.AntialiasedLineEnable = false;
+
+		switch (m_CullMode)
+		{
+		case Back:
+			rasterizerDesc.CullMode = D3D11_CULL_BACK;
+			std::cout << "Set to back cull mode\n";
+			break;
+		case Front:
+			rasterizerDesc.CullMode = D3D11_CULL_FRONT;
+			std::cout << "Set to front cull mode\n";
+			break;
+		case None:
+			rasterizerDesc.CullMode = D3D11_CULL_NONE;
+			std::cout << "Set to none cull mode\n";
+			break;
+		}
+
+		if (m_pRasterizerState)
+		{
+			m_pRasterizerState->Release();
+		}
+
+		const HRESULT hr{ m_pDevice->CreateRasterizerState(&rasterizerDesc, &m_pRasterizerState) };
+		if (FAILED(hr)) std::wcout << L"m_pRasterizerState failed to create\n";
+
+		//for (const auto pMesh : m_pMeshes)
+		//{
+		//	pMesh->GetRasterizer()->SetRasterizerState(0, m_pRasterizerState);
+		//}
+		m_pMeshes[0]->GetRasterizer()->SetRasterizerState(0, m_pRasterizerState);
 	}
 
 	void Renderer::CreateMesh()

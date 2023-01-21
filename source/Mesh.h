@@ -53,6 +53,7 @@ namespace dae
 		}
 
 		ID3DX11EffectSamplerVariable* GetSampleVar() const;
+		ID3DX11EffectRasterizerVariable* GetRasterizer() const;
 	private:
 
 		Effect* m_pEffect{};

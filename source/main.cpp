@@ -6,6 +6,7 @@
 
 #undef main
 #include "Renderer.h"
+#include "Camera.h"
 
 using namespace dae;
 
@@ -37,13 +38,17 @@ int main(int argc, char* args[])
 		return 1;
 
 	//Initialize "framework"
+	const auto pCamera = new Camera{};
 	const auto pTimer = new Timer();
-	const auto pRenderer = new Renderer(pWindow);
+	const auto pRenderer = new Renderer(pWindow, pCamera);
+
+	pCamera->Initialize(static_cast<float>(width) / static_cast<float>(height), 45.f, { 0,0,-50 });
 
 	//Start loop
 	pTimer->Start();
 	float printTimer = 0.f;
 	bool isLooping = true;
+	bool showFps{};
 	while (isLooping)
 	{
 		//--------- Get input events ---------
@@ -58,7 +63,27 @@ int main(int argc, char* args[])
 			case SDL_KEYUP:
 				if (e.key.keysym.scancode == SDL_SCANCODE_F2)
 				{
-					pRenderer->PressFilterMethod();
+					pRenderer->ToggleRotation();
+				}
+				if (e.key.keysym.scancode == SDL_SCANCODE_F3)
+				{
+					pRenderer->ToggleFireMesh();
+				}
+				if (e.key.keysym.scancode == SDL_SCANCODE_F4)
+				{
+					pRenderer->CycleSampleStates();
+				}
+				if (e.key.keysym.scancode == SDL_SCANCODE_F9)
+				{
+					pRenderer->CycleCullModes();
+				}
+				if (e.key.keysym.scancode == SDL_SCANCODE_F10)
+				{
+					pRenderer->ToggleClearCollor();
+				}
+				if (e.key.keysym.scancode == SDL_SCANCODE_F11)
+				{
+					showFps = !showFps;
 				}
 				//Test for a key
 				//if (e.key.keysym.scancode == SDL_SCANCODE_X)
@@ -69,17 +94,21 @@ int main(int argc, char* args[])
 
 		//--------- Update ---------
 		pRenderer->Update(pTimer);
+		pCamera->Update(pTimer);
 
 		//--------- Render ---------
 		pRenderer->Render();
 
 		//--------- Timer ---------
 		pTimer->Update();
-		printTimer += pTimer->GetElapsed();
-		if (printTimer >= 1.f)
+		if (showFps)
 		{
-			printTimer = 0.f;
-			std::cout << "dFPS: " << pTimer->GetdFPS() << std::endl;
+			printTimer += pTimer->GetElapsed();
+			if (printTimer >= 1.f)
+			{
+				printTimer = 0.f;
+				std::cout << "dFPS: " << pTimer->GetdFPS() << std::endl;
+			}
 		}
 	}
 	pTimer->Stop();
@@ -87,6 +116,7 @@ int main(int argc, char* args[])
 	//Shutdown "framework"
 	delete pRenderer;
 	delete pTimer;
+	delete pCamera;
 
 	ShutDown(pWindow);
 	return 0;

@@ -170,4 +170,9 @@ namespace dae
 	{
 		return m_pEffect->GetEffect()->GetVariableByName("gSampler")->AsSampler();
 	}
+
+	ID3DX11EffectRasterizerVariable* Mesh::GetRasterizer() const
+	{
+		return m_pEffect->GetEffect()->GetVariableByName("gRasterizerState")->AsRasterizer();
+	}
 }

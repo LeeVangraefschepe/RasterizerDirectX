@@ -1,6 +1,8 @@
 #pragma once
 #include <SDL_keyboard.h>
 #include <SDL_mouse.h>
+#include <chrono>
+#include <iostream>
 
 #include "Math.h"
 #include "Timer.h"

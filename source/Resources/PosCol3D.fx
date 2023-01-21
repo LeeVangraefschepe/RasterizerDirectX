@@ -1,5 +1,3 @@
-
-
 Texture2D gDiffuseMap : DiffuseMap;
 Texture2D gNormalMap : NormalMap;
 Texture2D gSpecularMap : SpecularMap;
@@ -37,6 +35,12 @@ DepthStencilState gDepthStencilState
 	DepthWriteMask = 1;
 	DepthFunc = less;
 	StencilEnable = false;
+};
+
+RasterizerState gRasterizerState
+{
+	CullMode = none;
+	FrontCounterClockwise = false; //default
 };
 
 //-------------------------
@@ -116,6 +120,7 @@ technique11 DefaultTechnique
 {
 	pass P0
 	{
+		SetRasterizerState(gRasterizerState);
 		SetDepthStencilState(gDepthStencilState, 0);
 		SetBlendState(gBlendState, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
 		SetVertexShader(CompileShader(vs_5_0, VS()));
